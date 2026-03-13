@@ -117,6 +117,13 @@
   <div>
     <div class="section-label">Layers</div>
     <div class="toggle-row"><span class="toggle-lbl">Heatmap</span><label class="toggle"><input type="checkbox" id="toggle-heat" checked/><span class="tog-slider"></span></label></div>
+    <div class="control-group" style="margin-top:4px;">
+      <label>Heatmap Source</label>
+      <select id="heat-source">
+        <option value="precinct">All arrests (precinct-level)</option>
+        <option value="dots">Precise addresses only</option>
+      </select>
+    </div>
     <div class="toggle-row"><span class="toggle-lbl">Dot Markers</span><label class="toggle"><input type="checkbox" id="toggle-dots"/><span class="tog-slider"></span></label></div>
     <div class="toggle-row"><span class="toggle-lbl">Council Districts</span><label class="toggle"><input type="checkbox" id="toggle-districts" checked/><span class="tog-slider"></span></label></div>
   </div>
@@ -194,7 +201,21 @@ function renderHeatmap(rows){
   if(heatLayer)map.removeLayer(heatLayer);
   if(!document.getElementById('toggle-heat').checked)return;
   const radius=+document.getElementById('radius-slider').value;
-  heatLayer=L.heatLayer(rows.map(r=>[r.lat,r.lng,1]),{radius,blur:Math.round(radius*0.8),maxZoom:17,minOpacity:0.3,gradient:{0.1:'#0000ff',0.3:'#00ff00',0.5:'#ffff00',0.7:'#ff8800',1.0:'#ff0000'}}).addTo(map);
+  const source=document.getElementById('heat-source').value;
+  // If 'dots', build heatmap only from precisely geocoded dot data filtered same way
+  let heatRows=rows;
+  if(source==='dots'){
+    const yr=document.getElementById('year-select').value;
+    const showP=document.getElementById('toggle-possess').checked;
+    const showD=document.getElementById('toggle-dist').checked;
+    heatRows=INLINE_DOTS.features.map(f=>({...f.properties,lat:f.geometry.coordinates[1],lng:f.geometry.coordinates[0]})).filter(r=>{
+      if(yr!=='all'&&r.year!==yr)return false;
+      if(r.category==='possession'&&!showP)return false;
+      if(r.category==='distribution'&&!showD)return false;
+      return true;
+    });
+  }
+  heatLayer=L.heatLayer(heatRows.map(r=>[r.lat,r.lng,1]),{radius,blur:Math.round(radius*0.8),maxZoom:17,minOpacity:0.3,gradient:{0.1:'#0000ff',0.3:'#00ff00',0.5:'#ffff00',0.7:'#ff8800',1.0:'#ff0000'}}).addTo(map);
 }
 
 function renderDots(rows){
@@ -360,6 +381,7 @@ function render(){
 document.getElementById('year-select').addEventListener('change',render);
 document.getElementById('radius-slider').addEventListener('input',function(){document.getElementById('radius-val').textContent=this.value;render();});
 document.getElementById('toggle-heat').addEventListener('change',render);
+document.getElementById('heat-source').addEventListener('change',render);
 document.getElementById('toggle-dots').addEventListener('change',render);
 document.getElementById('toggle-districts').addEventListener('change',()=>{buildDistricts();render();});
 document.getElementById('toggle-possess').addEventListener('change',render);
